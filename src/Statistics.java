@@ -13,9 +13,12 @@ public class Statistics {
     private long minTimestamp = Long.MAX_VALUE;
     private long maxTimestamp = Long.MIN_VALUE;
     private HashSet<String> uniqueRealUserIps = new HashSet<>();
+    private HashMap<Long, Integer> visitsPerSecond = new HashMap<>();
+    private HashSet<String> refererDomains = new HashSet<>();
+    private HashMap<String, Integer> visitsPerUser = new HashMap<>();
 
     public void addEntry(String page, int responseCode, String operatingSystem, String browser,
-                         long timestamp, String ip, String userAgent) {
+                         long timestamp, String ip, String userAgent, String referer) {
         if (responseCode == 200) {
             pagesSet.add(page);
         } else if (responseCode == 404) {
@@ -44,13 +47,62 @@ public class Statistics {
         }
 
         UserAgent ua = new UserAgent(userAgent);
-        if (!ua.isBot()) {
+        boolean isBot = ua.isBot();
+
+        if (!isBot) {
             totalVisitsByRealUsers++;
             uniqueRealUserIps.add(ip);
+
+            long second = timestamp / 1000;
+            Integer secondCount = visitsPerSecond.get(second);
+            if (secondCount == null) {
+                visitsPerSecond.put(second, 1);
+            } else {
+                visitsPerSecond.put(second, secondCount + 1);
+            }
+
+            Integer userCount = visitsPerUser.get(ip);
+            if (userCount == null) {
+                visitsPerUser.put(ip, 1);
+            } else {
+                visitsPerUser.put(ip, userCount + 1);
+            }
         }
 
         if (responseCode >= 400 && responseCode < 600) {
             totalErrorRequests++;
+        }
+
+        if (referer != null && !referer.isEmpty()) {
+            String domain = extractDomain(referer);
+            if (domain != null) {
+                refererDomains.add(domain);
+            }
+        }
+    }
+
+    private String extractDomain(String url) {
+        try {
+            String lower = url.toLowerCase();
+            int start = 0;
+            if (lower.startsWith("http://")) {
+                start = 7;
+            } else if (lower.startsWith("https://")) {
+                start = 8;
+            } else {
+                return null;
+            }
+            int end = url.indexOf('/', start);
+            if (end == -1) {
+                end = url.length();
+            }
+            String host = url.substring(start, end);
+            if (host.startsWith("www.")) {
+                host = host.substring(4);
+            }
+            return host;
+        } catch (Exception e) {
+            return null;
         }
     }
 
@@ -67,7 +119,6 @@ public class Statistics {
         for (int value : operatingSystemCounts.values()) {
             total += value;
         }
-
         Map<String, Double> shares = new HashMap<>();
         if (total == 0) {
             return shares;
@@ -127,5 +178,29 @@ public class Statistics {
             return 0.0;
         }
         return (double) totalVisitsByRealUsers / uniqueRealUserIps.size();
+    }
+
+    public int getPeakVisitsPerSecond() {
+        int max = 0;
+        for (int count : visitsPerSecond.values()) {
+            if (count > max) {
+                max = count;
+            }
+        }
+        return max;
+    }
+
+    public Set<String> getRefererDomains() {
+        return refererDomains;
+    }
+
+    public int getMaxVisitsPerUser() {
+        int max = 0;
+        for (int count : visitsPerUser.values()) {
+            if (count > max) {
+                max = count;
+            }
+        }
+        return max;
     }
 }
