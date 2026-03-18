@@ -5,6 +5,7 @@ out/
 .idea/
 *.iml
 .kotlin
+access.log
 
 ### Eclipse ###
 .apt_generated

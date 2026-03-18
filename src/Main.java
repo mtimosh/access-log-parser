@@ -1,8 +1,26 @@
-import java.util.Scanner;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 
 public class Main {
     public static void main(String[] args) {
-//        Scanner scanner = new Scanner(System.in);
+        String filePath = "access.log";
+        LogStatistics stats = new LogStatistics();
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                stats.processLine(line);
+            }
+            stats.printStatistics();
+        } catch (IOException e) {
+            System.err.println("Error reading file: " + e.getMessage());
+            e.printStackTrace();
+        } catch (LineTooLongException e) {
+            System.err.println("Line too long error: " + e.getMessage());
+            e.printStackTrace();
+        }
+/*//        Scanner scanner = new Scanner(System.in);
 //        System.out.println("Введите первое число:");
 //        int firstNumber = scanner.nextInt();
 //        System.out.println("Введите второе число:");
@@ -90,6 +108,6 @@ public class Main {
         System.out.println("  Секунда " + ((now - 400)/1000) + ": 1 посещение (IP 192.168.1.5)");
         System.out.println("Пик должен быть 3 (реальные пользователи на 3-й секунде).");
         System.out.println("Максимум посещений одним пользователем: IP 192.168.1.1 посетил 3 раза (индекс 0,1,2).");
-        System.out.println("Referer domains: google.com, yahoo.com, stackoverflow.com (бот тоже дал google.com).");
+        System.out.println("Referer domains: google.com, yahoo.com, stackoverflow.com (бот тоже дал google.com).");*/
     }
 }
