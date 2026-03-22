@@ -5,8 +5,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Scanner;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class Main {
     public static void main(String[] args) {
@@ -23,40 +21,25 @@ public class Main {
             System.out.println("Path is not a file.");
             return;
         }
-        Pattern logPattern = Pattern.compile(
-                "^(\\S+) - - \\[(.+?)] \"(\\S+) (\\S+) HTTP/\\d\\.\\d\" (\\d{3}) (\\d+|-) \"(.*?)\" \"(.*?)\"$"
-        );
+
+        Statistics stats = new Statistics();
         int totalLines = 0;
-        int yandexCount = 0;
-        int googleCount = 0;
+        int skipped = 0;
+
         try (BufferedReader reader = new BufferedReader(new FileReader(path.toFile()))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 totalLines++;
+
                 if (line.length() > 1024) {
                     throw new RuntimeException("Line longer than 1024 characters: " + line.length());
                 }
-                Matcher matcher = logPattern.matcher(line);
-                if (matcher.find()) {
-                    String userAgent = matcher.group(8);
-                    int firstOpen = userAgent.indexOf('(');
-                    int firstClose = userAgent.indexOf(')');
-                    if (firstOpen != -1 && firstClose != -1 && firstClose > firstOpen) {
-                        String inside = userAgent.substring(firstOpen + 1, firstClose);
-                        String[] parts = inside.split(";");
-                        if (parts.length >= 2) {
-                            String fragment = parts[1].trim();
-                            int slashIndex = fragment.indexOf('/');
-                            if (slashIndex != -1) {
-                                fragment = fragment.substring(0, slashIndex);
-                            }
-                            if (fragment.equals("YandexBot")) {
-                                yandexCount++;
-                            } else if (fragment.equals("Googlebot")) {
-                                googleCount++;
-                            }
-                        }
-                    }
+
+                try {
+                    LogEntry entry = new LogEntry(line);
+                    stats.addEntry(entry);
+                } catch (IllegalArgumentException e) {
+                    skipped++;
                 }
             }
         } catch (IOException e) {
@@ -65,13 +48,20 @@ public class Main {
         }
 
         System.out.println("Total lines: " + totalLines);
-        if (totalLines > 0) {
-            double yandexShare = (double) yandexCount / totalLines * 100;
-            double googleShare = (double) googleCount / totalLines * 100;
-            System.out.printf("YandexBot share: %.2f%%\n", yandexShare);
-            System.out.printf("Googlebot share: %.2f%%\n", googleShare);
-        } else {
-            System.out.println("File is empty.");
-        }
+        System.out.println("Skipped invalid lines: " + skipped);
+        System.out.printf("Traffic rate: %.2f bytes/hour\n", stats.getTrafficRate());
+
+        System.out.println("Existing pages count: " + stats.getExistingPages().size());
+        System.out.println("OS shares: " + stats.getOsShares());
+        System.out.println("404 pages: " + stats.getNotFoundPages());
+        System.out.println("Browser shares: " + stats.getBrowserShares());
+
+        System.out.printf("Average visits per hour (non-bot): %.2f\n", stats.getAverageVisitsPerHour());
+        System.out.printf("Average errors per hour: %.2f\n", stats.getAverageErrorsPerHour());
+        System.out.printf("Average visits per user (non-bot): %.2f\n", stats.getAverageVisitsPerUser());
+
+        System.out.println("Peak visits per second: " + stats.getPeakVisitsPerSecond());
+        System.out.println("Referer domains: " + stats.getRefererDomains());
+        System.out.println("Max visits per user: " + stats.getMaxVisitsPerUser());
     }
 }
